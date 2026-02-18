@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-canary
+  namespace: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-canary
+  template:
+    metadata:
+      labels:
+        app: kafka-canary
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      volumes:
+        - name: certs
+          projected:
+            sources:
+              - secret:
+                  name: kafka-cluster-ca-cert
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - secret:
+                  name: kafka-canary
+                  items:
+                    - key: user.p12
+                      path: user.p12
+                    - key: user.key
+                      path: user.key
+      containers:
+        - name: kafka-canary
+          image: docker.io/sebgot/kafka-canary:0.0.3
+          ports:
+            - containerPort: 8080
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA__BOOTSTRAPSERVERS
+              value: "kafka-kafka-bootstrap:9092"
+            - name: KAFKA__TOPIC
+              value: "onprem.test.canary-data.add.v1"
+            - name: KAFKA__SSLCALOCATION
+              value: "/etc/ssl/certs/ca.crt"
+            - name: KAFKA__SSLKEYSTORELOCATION
+              value: "/etc/ssl/certs/user.p12"
+            - name: KAFKA__SSLKEYSTOREPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: user.password
+                  name: kafka-canary
+            - name: DOTNET_RUNNING_IN_CONTAINER
+              value: "true"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /health/ready
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/ssl/certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-canary
+  labels:
+    app: kafka-canary
+spec:
+  type: ClusterIP
+  selector:
+    app: kafka-canary
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
