@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka-canary
-  namespace: kafka
 spec:
   replicas: 1
   selector:
@@ -17,6 +16,8 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/port: "8080"
     spec:
+      securityContext:
+        runAsNonRoot: true
       volumes:
         - name: certs
           projected:
@@ -26,33 +27,28 @@ spec:
                   items:
                     - key: ca.crt
                       path: ca.crt
-              - secret:
-                  name: kafka-canary
-                  items:
-                    - key: user.p12
-                      path: user.p12
-                    - key: user.key
-                      path: user.key
       containers:
         - name: kafka-canary
-          image: docker.io/sebgot/kafka-canary:0.0.3
+          image: docker.io/sebgot/kafka-canary-oauth:0.0.3
           ports:
             - containerPort: 8080
           imagePullPolicy: IfNotPresent
           env:
+            - name: KAFKA__CLIENTID
+              value: "8c993e5f-60af-4956-9f7b-1c938c34e14f"
+            - name: KAFKA__TENANTID
+              value: "c90d3c25-50e1-46db-bcad-8c6628db43ae"
+            - name: KAFKA__CLIENTSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: canary-client-secret
+                  key: secret
             - name: KAFKA__BOOTSTRAPSERVERS
-              value: "kafka-kafka-bootstrap:9092"
+              value: "kafka-kafka-external-bootstrap-ipaas-kafka-test.apps.ipaas.ocu.u.dep.no:443"
             - name: KAFKA__TOPIC
               value: "onprem.test.canary-data.add.v1"
             - name: KAFKA__SSLCALOCATION
-              value: "/etc/ssl/certs/ca.crt"
-            - name: KAFKA__SSLKEYSTORELOCATION
-              value: "/etc/ssl/certs/user.p12"
-            - name: KAFKA__SSLKEYSTOREPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: user.password
-                  name: kafka-canary
+              value: "/kafka-ca/ca.crt"
             - name: DOTNET_RUNNING_IN_CONTAINER
               value: "true"
             - name: ASPNETCORE_URLS
@@ -67,6 +63,11 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             limits:
               cpu: "200m"
@@ -75,8 +76,8 @@ spec:
               cpu: "100m"
               memory: "128Mi"
           volumeMounts:
-            - name: certs
-              mountPath: /etc/ssl/certs
+          - name: certs
+            mountPath: /kafka-ca
 ---
 apiVersion: v1
 kind: Service
@@ -85,10 +86,10 @@ metadata:
   labels:
     app: kafka-canary
 spec:
-  type: ClusterIP
   selector:
     app: kafka-canary
   ports:
-    - protocol: TCP
+    - name: http
       port: 8080
       targetPort: 8080
+  type: ClusterIP
