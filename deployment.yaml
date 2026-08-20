@@ -34,15 +34,19 @@ spec:
             - containerPort: 8080
           imagePullPolicy: IfNotPresent
           env:
+            - name: KAFKA__SASLMECHANISM
+              value: "OAuthBearer"
             - name: KAFKA__CLIENTID
               value: "8c993e5f-60af-4956-9f7b-1c938c34e14f"
-            - name: KAFKA__TENANTID
-              value: "c90d3c25-50e1-46db-bcad-8c6628db43ae"
             - name: KAFKA__CLIENTSECRET
               valueFrom:
                 secretKeyRef:
                   name: canary-client-secret
                   key: secret
+            - name: KAFKA__TOKENENDPOINT
+              value: "https://login.microsoftonline.com/c90d3c25-50e1-46db-bcad-8c6628db43ae/oauth2/v2.0/token"
+            - name: KAFKA__OAUTHSCOPE
+              value: "api://8c993e5f-60af-4956-9f7b-1c938c34e14f/.default"
             - name: KAFKA__BOOTSTRAPSERVERS
               value: "kafka-kafka-external-bootstrap-ipaas-kafka-test.apps.ipaas.ocu.u.dep.no:443"
             - name: KAFKA__TOPIC
