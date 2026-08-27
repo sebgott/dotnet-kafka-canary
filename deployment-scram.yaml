@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-canary-scram
+  namespace: ipaas-kafka-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-canary-scram
+  template:
+    metadata:
+      labels:
+        app: kafka-canary-scram
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      volumes:
+        - name: certs
+          projected:
+            sources:
+              - secret:
+                  name: kafka-cluster-ca-cert
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+      containers:
+        - name: kafka-canary
+          image: docker.io/sebgot/kafka-canary:0.0.6
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KAFKA__GROUPID
+              value: "kafka-canary-scram-group-$(POD_NAME)"
+            - name: KAFKA__SASLMECHANISM
+              value: "ScramSha512"
+            - name: KAFKA__SASLUSERNAME
+              value: "kafka-canary"
+            - name: KAFKA__SASLPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-canary
+                  key: password
+            - name: KAFKA__BOOTSTRAPSERVERS
+              value: "kafka:9092"
+            - name: KAFKA__TOPIC
+              value: "onprem.dev.canary-data.add.v1"
+            - name: KAFKA__SSLCALOCATION
+              value: "/kafka-ca/ca.crt"
+            - name: DOTNET_RUNNING_IN_CONTAINER
+              value: "true"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /health/ready
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: certs
+              mountPath: /kafka-ca
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-canary-scram
+  namespace: ipaas-kafka-dev
+  labels:
+    app: kafka-canary-scram
+spec:
+  selector:
+    app: kafka-canary-scram
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

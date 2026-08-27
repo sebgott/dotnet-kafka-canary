@@ -29,10 +29,10 @@ spec:
                       path: ca.crt
       containers:
         - name: kafka-canary
-          image: docker.io/sebgot/kafka-canary-oauth:0.0.4
+          image: docker.io/sebgot/kafka-canary:0.0.6
           ports:
             - containerPort: 8080
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: POD_NAME
               valueFrom:
@@ -57,7 +57,7 @@ spec:
             - name: KAFKA__OAUTHSCOPE
               value: "api://56a6af18-83dc-4f3f-9c30-f367f42f7aaa/.default"
             - name: KAFKA__BOOTSTRAPSERVERS
-              value: "kafka-kafka-external-bootstrap-ipaas-kafka-test.apps.ipaas.ocu.u.dep.no:443"
+              value: "kafka:9092"
             - name: KAFKA__TOPIC
               value: "onprem.test.canary-data.add.v1"
             - name: KAFKA__SSLCALOCATION
