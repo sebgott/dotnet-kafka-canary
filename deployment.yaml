@@ -29,11 +29,17 @@ spec:
                       path: ca.crt
       containers:
         - name: kafka-canary
-          image: docker.io/sebgot/kafka-canary-oauth:0.0.3
+          image: docker.io/sebgot/kafka-canary-oauth:0.0.4
           ports:
             - containerPort: 8080
           imagePullPolicy: IfNotPresent
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KAFKA__GROUPID
+              value: "kafka-canary-group-$(POD_NAME)"
             - name: KAFKA__SASLMECHANISM
               value: "OAuthBearer"
             - name: KAFKA__CLIENTID
