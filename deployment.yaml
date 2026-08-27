@@ -37,16 +37,19 @@ spec:
             - name: KAFKA__SASLMECHANISM
               value: "OAuthBearer"
             - name: KAFKA__CLIENTID
-              value: "8c993e5f-60af-4956-9f7b-1c938c34e14f"
+              valueFrom:
+                secretKeyRef:
+                  name: dummy-app-details
+                  key: clientId
             - name: KAFKA__CLIENTSECRET
               valueFrom:
                 secretKeyRef:
-                  name: canary-client-secret
-                  key: secret
+                  name: dummy-app-details
+                  key: clientSecret
             - name: KAFKA__TOKENENDPOINT
-              value: "https://login.microsoftonline.com/c90d3c25-50e1-46db-bcad-8c6628db43ae/oauth2/v2.0/token"
+              value: "https://login.microsoftonline.com/a0662e96-1770-4f05-82d5-6a513fa8b7be/oauth2/v2.0/token"
             - name: KAFKA__OAUTHSCOPE
-              value: "api://8c993e5f-60af-4956-9f7b-1c938c34e14f/.default"
+              value: "api://56a6af18-83dc-4f3f-9c30-f367f42f7aaa/.default"
             - name: KAFKA__BOOTSTRAPSERVERS
               value: "kafka-kafka-external-bootstrap-ipaas-kafka-test.apps.ipaas.ocu.u.dep.no:443"
             - name: KAFKA__TOPIC

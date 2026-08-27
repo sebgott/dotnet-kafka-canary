@@ -50,6 +50,8 @@ public class KafkaCanaryService : BackgroundService
 
             var json = JsonSerializer.Serialize(message);
 
+            _inflight[message.MessageId] = message.ProducedAtUtc;
+
             try
             {
                 await _producer.ProduceAsync(_topic, new Message<string, string>
@@ -58,19 +60,19 @@ public class KafkaCanaryService : BackgroundService
                     Value = json
                 }, token);
 
-                _inflight[message.MessageId] = message.ProducedAtUtc;
-
                 PrometheusMetrics.MessagesProduced.Inc();
 
                 _logger.LogInformation("Produced {MessageId}", message.MessageId);
             }
             catch (ProduceException<string?, byte> ex)
             {
+                _inflight.TryRemove(message.MessageId, out _);
                 PrometheusMetrics.Failures.Inc();
                 _logger.LogError("Error producing message 'ProduceException': {Message}", ex.Message);
             }
             catch (Exception ex)
             {
+                _inflight.TryRemove(message.MessageId, out _);
                 PrometheusMetrics.Failures.Inc();
                 _logger.LogError(ex, "Produce failed");
             }
