@@ -30,6 +30,11 @@ public sealed class KafkaOptionsTests
         Assert.NotNull(result.OAuthBearerTokenRefreshHandler);
         Assert.Null(result.ClientConfig.SaslUsername);
         Assert.Null(result.ClientConfig.SaslPassword);
+        Assert.Equal(true, result.ProducerConfig.EnableIdempotence);
+        Assert.Equal(int.MaxValue, result.ProducerConfig.MessageSendMaxRetries);
+        Assert.Equal(options.ProducerMessageTimeoutMs, result.ProducerConfig.MessageTimeoutMs);
+        Assert.Equal(options.RetryBackoffMs, result.ProducerConfig.RetryBackoffMs);
+        Assert.Equal(options.RetryBackoffMaxMs, result.ProducerConfig.RetryBackoffMaxMs);
     }
 
     [Fact]
@@ -49,6 +54,8 @@ public sealed class KafkaOptionsTests
         Assert.Equal(SaslMechanism.ScramSha512, result.ClientConfig.SaslMechanism);
         Assert.Equal("canary-user", result.ClientConfig.SaslUsername);
         Assert.Equal("canary-password", result.ClientConfig.SaslPassword);
+        Assert.Equal("canary-user", result.ProducerConfig.SaslUsername);
+        Assert.Equal("canary-password", result.ProducerConfig.SaslPassword);
         Assert.Null(result.OAuthBearerTokenRefreshHandler);
     }
 
@@ -91,6 +98,21 @@ public sealed class KafkaOptionsTests
         Assert.Contains(
             result.Failures,
             failure => failure.Contains("must be OAuthBearer or ScramSha512"));
+    }
+
+    [Fact]
+    public void RejectsInvalidProducerRetrySettings()
+    {
+        var options = CreateValidOAuthOptions();
+        options.ProducerMessageTimeoutMs = 0;
+        options.RetryBackoffMs = 2_000;
+        options.RetryBackoffMaxMs = 1_000;
+
+        var result = _validator.Validate(null, options);
+
+        Assert.True(result.Failed);
+        Assert.Contains(result.Failures, failure => failure.Contains(nameof(KafkaOptions.ProducerMessageTimeoutMs)));
+        Assert.Contains(result.Failures, failure => failure.Contains(nameof(KafkaOptions.RetryBackoffMaxMs)));
     }
 
     [Fact]

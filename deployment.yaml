@@ -29,7 +29,7 @@ spec:
                       path: ca.crt
       containers:
         - name: kafka-canary
-          image: docker.io/sebgot/kafka-canary:0.0.6
+          image: docker.io/sebgot/kafka-canary:0.0.7
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
@@ -57,7 +57,7 @@ spec:
             - name: KAFKA__OAUTHSCOPE
               value: "api://56a6af18-83dc-4f3f-9c30-f367f42f7aaa/.default"
             - name: KAFKA__BOOTSTRAPSERVERS
-              value: "kafka:9092"
+              value: "kafka:443"
             - name: KAFKA__TOPIC
               value: "onprem.test.canary-data.add.v1"
             - name: KAFKA__SSLCALOCATION

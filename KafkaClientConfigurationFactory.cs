@@ -6,6 +6,7 @@ namespace dotnet_kafka_canary;
 
 public sealed record KafkaClientConfiguration(
     ClientConfig ClientConfig,
+    ProducerConfig ProducerConfig,
     Action<IClient, string>? OAuthBearerTokenRefreshHandler);
 
 public sealed class KafkaClientConfigurationFactory
@@ -30,19 +31,36 @@ public sealed class KafkaClientConfigurationFactory
         {
             AllowAutoCreateTopics = true,
             BootstrapServers = _options.BootstrapServers,
+            RetryBackoffMs = _options.RetryBackoffMs,
+            RetryBackoffMaxMs = _options.RetryBackoffMaxMs,
             SecurityProtocol = SecurityProtocol.SaslSsl,
             SaslMechanism = _options.SaslMechanism,
             SslCaLocation = _options.SslCaLocation
         };
 
+        Action<IClient, string>? oAuthBearerTokenRefreshHandler;
         if (_options.SaslMechanism == SaslMechanism.ScramSha512)
         {
             clientConfig.SaslUsername = _options.SaslUsername;
             clientConfig.SaslPassword = _options.SaslPassword;
-            return new KafkaClientConfiguration(clientConfig, null);
+            oAuthBearerTokenRefreshHandler = null;
+        }
+        else
+        {
+            oAuthBearerTokenRefreshHandler = RefreshOAuthBearerToken;
         }
 
-        return new KafkaClientConfiguration(clientConfig, RefreshOAuthBearerToken);
+        var producerConfig = new ProducerConfig(clientConfig)
+        {
+            EnableIdempotence = true,
+            MessageSendMaxRetries = int.MaxValue,
+            MessageTimeoutMs = _options.ProducerMessageTimeoutMs
+        };
+
+        return new KafkaClientConfiguration(
+            clientConfig,
+            producerConfig,
+            oAuthBearerTokenRefreshHandler);
     }
 
     private async void RefreshOAuthBearerToken(IClient client, string config)

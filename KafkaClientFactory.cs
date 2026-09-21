@@ -39,7 +39,7 @@ public sealed class KafkaClientFactory
     {
         var configuration = _configurationFactory.Create();
 
-        var producerBuilder = new ProducerBuilder<string, string>(configuration.ClientConfig);
+        var producerBuilder = new ProducerBuilder<string, string>(configuration.ProducerConfig);
         if (configuration.OAuthBearerTokenRefreshHandler is not null)
         {
             producerBuilder.SetOAuthBearerTokenRefreshHandler(

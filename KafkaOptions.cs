@@ -17,4 +17,7 @@ public sealed class KafkaOptions
     public string? ClientSecret { get; set; }
     public string? TokenEndpoint { get; set; }
     public string? OAuthScope { get; set; }
+    public int ProducerMessageTimeoutMs { get; set; } = 900_000;
+    public int RetryBackoffMs { get; set; } = 1_000;
+    public int RetryBackoffMaxMs { get; set; } = 10_000;
 }

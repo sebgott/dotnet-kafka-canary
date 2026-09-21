@@ -14,6 +14,13 @@ kafka_canary_failures_total
 kafka_canary_roundtrip_seconds
 ```
 
+## Grafana dashboard
+
+Import [`dashboards/kafka-canary.json`](dashboards/kafka-canary.json) into
+Grafana and select the Prometheus datasource. The dashboard includes
+namespace and pod filters, producer and consumer throughput, delivery failures,
+the producer/consumer delivery gap, and p50/p95/p99 round-trip latency.
+
 ## Kafka authentication
 
 The canary connects with `SASL_SSL` and supports `OAuthBearer` and
@@ -29,6 +36,14 @@ Shared settings:
 | `KAFKA__TOPIC` | `onprem.test.canary-data.add.v1` |
 | `KAFKA__GROUPID` | `kafka-canary-group` |
 | `KAFKA__SSLCALOCATION` | `certs/ca.crt` |
+| `KAFKA__PRODUCERMESSAGETIMEOUTMS` | `900000` (15 minutes) |
+| `KAFKA__RETRYBACKOFFMS` | `1000` |
+| `KAFKA__RETRYBACKOFFMAXMS` | `10000` |
+
+The producer is idempotent and retries retriable delivery failures until the
+configured message timeout expires. The default 15-minute delivery window
+keeps a broker rolling update from being reported as a failed canary send while
+preventing indefinite pending messages.
 
 ### OAuthBearer
 

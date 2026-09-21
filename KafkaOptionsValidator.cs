@@ -13,6 +13,15 @@ public sealed class KafkaOptionsValidator : IValidateOptions<KafkaOptions>
         Require(options.BootstrapServers, nameof(options.BootstrapServers), failures);
         Require(options.SslCaLocation, nameof(options.SslCaLocation), failures);
         Require(options.GroupId, nameof(options.GroupId), failures);
+        RequirePositive(options.ProducerMessageTimeoutMs, nameof(options.ProducerMessageTimeoutMs), failures);
+        RequirePositive(options.RetryBackoffMs, nameof(options.RetryBackoffMs), failures);
+        RequirePositive(options.RetryBackoffMaxMs, nameof(options.RetryBackoffMaxMs), failures);
+
+        if (options.RetryBackoffMaxMs < options.RetryBackoffMs)
+        {
+            failures.Add(
+                $"{KafkaOptions.SectionName}:{nameof(options.RetryBackoffMaxMs)} must be greater than or equal to {nameof(options.RetryBackoffMs)}.");
+        }
 
         switch (options.SaslMechanism)
         {
@@ -52,5 +61,11 @@ public sealed class KafkaOptionsValidator : IValidateOptions<KafkaOptions>
     {
         if (string.IsNullOrWhiteSpace(value))
             failures.Add($"{KafkaOptions.SectionName}:{propertyName} is required.");
+    }
+
+    private static void RequirePositive(int value, string propertyName, ICollection<string> failures)
+    {
+        if (value <= 0)
+            failures.Add($"{KafkaOptions.SectionName}:{propertyName} must be greater than zero.");
     }
 }
