@@ -72,6 +72,31 @@ public sealed class KafkaOptionsTests
     }
 
     [Fact]
+    public void AcceptsWorkloadIdentityWithoutClientSecretSettings()
+    {
+        var options = new KafkaOptions
+        {
+            UseWorkloadIdentity = true,
+            OAuthScope = "api://kafka/.default"
+        };
+
+        Assert.Same(ValidateOptionsResult.Success, _validator.Validate(null, options));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("api://kafka")]
+    public void RejectsMissingOrInvalidWorkloadIdentityScope(string? scope)
+    {
+        var options = new KafkaOptions { UseWorkloadIdentity = true, OAuthScope = scope };
+
+        var result = _validator.Validate(null, options);
+
+        Assert.NotNull(result.Failures);
+        Assert.Contains(nameof(KafkaOptions.OAuthScope), Assert.Single(result.Failures));
+    }
+
+    [Fact]
     public void RejectsMissingScramSettings()
     {
         var options = new KafkaOptions

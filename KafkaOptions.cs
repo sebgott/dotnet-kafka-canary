@@ -13,6 +13,7 @@ public sealed class KafkaOptions
     public SaslMechanism SaslMechanism { get; set; } = SaslMechanism.OAuthBearer;
     public string? SaslUsername { get; set; }
     public string? SaslPassword { get; set; }
+    public bool UseWorkloadIdentity { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
     public string? TokenEndpoint { get; set; }

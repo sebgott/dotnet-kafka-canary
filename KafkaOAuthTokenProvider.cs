@@ -1,9 +1,10 @@
 using System.Text.Json;
+using Azure.Core;
 using Microsoft.Extensions.Options;
 
 namespace dotnet_kafka_canary;
 
-public sealed record KafkaOAuthToken(string AccessToken, long ExpiresInSeconds);
+public sealed record KafkaOAuthToken(string AccessToken, DateTimeOffset ExpiresOn);
 
 public interface IKafkaOAuthTokenProvider
 {
@@ -67,6 +68,19 @@ public sealed class KafkaOAuthTokenProvider : IKafkaOAuthTokenProvider
         if (string.IsNullOrWhiteSpace(accessToken) || expiresIn <= 0)
             throw new InvalidOperationException("Kafka OAuth token response is invalid.");
 
-        return new KafkaOAuthToken(accessToken, expiresIn);
+        return new KafkaOAuthToken(accessToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn));
+    }
+}
+
+public sealed class KafkaWorkloadIdentityTokenProvider(
+    TokenCredential credential,
+    IOptions<KafkaOptions> options) : IKafkaOAuthTokenProvider
+{
+    private readonly TokenRequestContext _request = new([options.Value.OAuthScope!]);
+
+    public async Task<KafkaOAuthToken> FetchTokenAsync(CancellationToken cancellationToken = default)
+    {
+        var token = await credential.GetTokenAsync(_request, cancellationToken);
+        return new KafkaOAuthToken(token.Token, token.ExpiresOn);
     }
 }

@@ -26,9 +26,21 @@ public sealed class KafkaOptionsValidator : IValidateOptions<KafkaOptions>
         switch (options.SaslMechanism)
         {
             case SaslMechanism.OAuthBearer:
+                Require(options.OAuthScope, nameof(options.OAuthScope), failures);
+
+                if (options.UseWorkloadIdentity)
+                {
+                    if (!string.IsNullOrWhiteSpace(options.OAuthScope)
+                        && !options.OAuthScope.EndsWith("/.default", StringComparison.Ordinal))
+                    {
+                        failures.Add($"{KafkaOptions.SectionName}:{nameof(options.OAuthScope)} must end with /.default for Azure Workload Identity.");
+                    }
+
+                    break;
+                }
+
                 Require(options.ClientId, nameof(options.ClientId), failures);
                 Require(options.ClientSecret, nameof(options.ClientSecret), failures);
-                Require(options.OAuthScope, nameof(options.OAuthScope), failures);
 
                 if (string.IsNullOrWhiteSpace(options.TokenEndpoint))
                 {

@@ -68,9 +68,13 @@ public sealed class KafkaClientConfigurationFactory
         try
         {
             var token = await _tokenProvider.FetchTokenAsync();
-            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var lifetimeMs = Math.Max(1, token.ExpiresInSeconds - 5) * 1000;
-            var absoluteExpiry = nowMs + lifetimeMs;
+            var now = DateTimeOffset.UtcNow;
+            var remaining = token.ExpiresOn - now;
+            if (remaining <= TimeSpan.Zero)
+                throw new InvalidOperationException("Kafka OAuth token has expired.");
+
+            var expiryBuffer = TimeSpan.FromSeconds(5);
+            var expiry = remaining > expiryBuffer ? token.ExpiresOn - expiryBuffer : token.ExpiresOn;
             var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token.AccessToken);
             var principalName = jwt.Claims.FirstOrDefault(claim => claim.Type == "sub")?.Value;
 
@@ -79,10 +83,10 @@ public sealed class KafkaClientConfigurationFactory
 
             _logger.LogInformation(
                 "Setting Kafka OAuth token with lifetime {LifetimeMs} ms",
-                lifetimeMs);
+                (expiry - now).TotalMilliseconds);
             client.OAuthBearerSetToken(
                 token.AccessToken,
-                absoluteExpiry,
+                expiry.ToUnixTimeMilliseconds(),
                 principalName,
                 null);
         }

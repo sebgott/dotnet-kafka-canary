@@ -1,3 +1,5 @@
+using Azure.Identity;
+using Confluent.Kafka;
 using dotnet_kafka_canary;
 using Microsoft.Extensions.Options;
 using Prometheus;
@@ -10,7 +12,13 @@ builder.Services
     .ValidateOnStart();
 builder.Services.AddSingleton<IValidateOptions<KafkaOptions>, KafkaOptionsValidator>();
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<IKafkaOAuthTokenProvider, KafkaOAuthTokenProvider>();
+builder.Services.AddSingleton<IKafkaOAuthTokenProvider>(services =>
+{
+    var options = services.GetRequiredService<IOptions<KafkaOptions>>();
+    return options.Value is { SaslMechanism: SaslMechanism.OAuthBearer, UseWorkloadIdentity: true }
+        ? new KafkaWorkloadIdentityTokenProvider(new WorkloadIdentityCredential(), options)
+        : ActivatorUtilities.CreateInstance<KafkaOAuthTokenProvider>(services);
+});
 builder.Services.AddSingleton<KafkaClientConfigurationFactory>();
 builder.Services.AddSingleton<KafkaClientFactory>();
 builder.Services.AddSingleton(serviceProvider =>
