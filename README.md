@@ -47,7 +47,7 @@ preventing indefinite pending messages.
 
 ### OAuthBearer
 
-It requires:
+By default, OAuthBearer uses client-secret authentication and requires:
 
 ```text
 KAFKA__CLIENTID
@@ -59,6 +59,37 @@ KAFKA__OAUTHSCOPE
 `deployment.yaml` shows a complete OAuthBearer deployment. Store
 `KAFKA__CLIENTSECRET` in a Kubernetes Secret rather than directly in the
 manifest.
+
+#### Microsoft Entra Workload Identity
+
+[`deployment-workload-identity.yaml`](deployment-workload-identity.yaml)
+includes a dedicated Kubernetes service account, a deployment with
+`KAFKA__USEWORKLOADIDENTITY=true`, and a Service. This mode uses Azure's
+`WorkloadIdentityCredential` directly and does not fall back to a client secret
+or another Azure credential.
+
+1. Enable the cluster's OIDC issuer and
+   [Microsoft Entra Workload ID](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster).
+   Create a federated identity credential on the Entra app registration or
+   user-assigned managed identity. Use the cluster's OIDC issuer,
+   subject `system:serviceaccount:<namespace>:kafka-canary-workload-identity`, and audience
+   `api://AzureADTokenExchange`. Ensure Kafka authorizes the resulting identity
+   to produce and consume on the canary topic and use its consumer group.
+2. In the example manifest, replace the service account's Entra client ID,
+   set `KAFKA__OAUTHSCOPE` to the Kafka API scope, and point the image at a
+   build that supports Workload Identity. Adjust the broker and topic as
+   needed and make sure the `kafka-cluster-ca-cert` Secret in the target
+   namespace contains `ca.crt`.
+3. Apply the manifest to the same namespace used in the federated subject:
+
+   ```sh
+   kubectl apply --namespace YOUR_NAMESPACE -f deployment-workload-identity.yaml
+   ```
+
+The workload identity webhook injects `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+and `AZURE_FEDERATED_TOKEN_FILE` into newly created pods. If the identity is
+in a different tenant than the cluster default, add the
+`azure.workload.identity/tenant-id` annotation to the service account.
 
 ### SCRAM-SHA-512
 
