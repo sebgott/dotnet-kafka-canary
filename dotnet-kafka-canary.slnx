@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/dotnet-kafka-canary.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/dotnet-kafka-canary.Tests/dotnet-kafka-canary.Tests.csproj" />
+  </Folder>
+</Solution>

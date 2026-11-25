@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../dotnet-kafka-canary.csproj" />
+    <ProjectReference Include="../../src/dotnet-kafka-canary.csproj" />
   </ItemGroup>
 
 </Project>

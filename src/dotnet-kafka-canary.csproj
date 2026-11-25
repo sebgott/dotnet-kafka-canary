@@ -7,12 +7,17 @@
     <UserSecretsId>dotnet-dotnet_kafka_canary-de582478-a1e2-4fc0-85a5-ddf87f3349b6</UserSecretsId>
     <RootNamespace>dotnet_kafka_canary</RootNamespace>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="CloudNative.CloudEvents.Kafka" Version="3.9.0" />
+    <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" Version="2.9.0" />
     <PackageReference Include="Confluent.Kafka" Version="2.16.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.21.0" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>

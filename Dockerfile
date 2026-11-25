@@ -10,10 +10,10 @@ ARG BUILD_CONFIGURATION=Release
 # when building linux/amd64 under QEMU emulation (e.g. on Apple Silicon hosts).
 ENV DOTNET_EnableWriteXorExecute=0
 WORKDIR /src
-COPY ["dotnet-kafka-canary.csproj", "./"]
-RUN dotnet restore "dotnet-kafka-canary.csproj"
-COPY . .
-WORKDIR "/src/"
+COPY ["src/dotnet-kafka-canary.csproj", "src/"]
+RUN dotnet restore "src/dotnet-kafka-canary.csproj"
+COPY src/ src/
+WORKDIR "/src/src"
 RUN dotnet build "./dotnet-kafka-canary.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

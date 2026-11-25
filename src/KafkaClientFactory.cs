@@ -5,14 +5,14 @@ namespace dotnet_kafka_canary;
 
 public sealed class KafkaClients : IDisposable
 {
-    public KafkaClients(IProducer<string, string> producer, IConsumer<string, string> consumer)
+    public KafkaClients(IProducer<string?, byte[]> producer, IConsumer<string?, byte[]> consumer)
     {
         Producer = producer;
         Consumer = consumer;
     }
 
-    public IProducer<string, string> Producer { get; }
-    public IConsumer<string, string> Consumer { get; }
+    public IProducer<string?, byte[]> Producer { get; }
+    public IConsumer<string?, byte[]> Consumer { get; }
 
     public void Dispose()
     {
@@ -39,7 +39,7 @@ public sealed class KafkaClientFactory
     {
         var configuration = _configurationFactory.Create();
 
-        var producerBuilder = new ProducerBuilder<string, string>(configuration.ProducerConfig);
+        var producerBuilder = new ProducerBuilder<string?, byte[]>(configuration.ProducerConfig);
         if (configuration.OAuthBearerTokenRefreshHandler is not null)
         {
             producerBuilder.SetOAuthBearerTokenRefreshHandler(
@@ -52,7 +52,7 @@ public sealed class KafkaClientFactory
             EnableAutoCommit = false,
             AutoOffsetReset = AutoOffsetReset.Latest
         };
-        var consumerBuilder = new ConsumerBuilder<string, string>(consumerConfig);
+        var consumerBuilder = new ConsumerBuilder<string?, byte[]>(consumerConfig);
         if (configuration.OAuthBearerTokenRefreshHandler is not null)
         {
             consumerBuilder.SetOAuthBearerTokenRefreshHandler(

@@ -62,6 +62,9 @@ spec:
               value: "http://+:8080"
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
+            # Optional: export traces to an OpenTelemetry collector.
+            # - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            #   value: "http://otel-collector:4317"
           readinessProbe:
             httpGet:
               port: 8080

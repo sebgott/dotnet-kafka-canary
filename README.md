@@ -14,6 +14,56 @@ kafka_canary_failures_total
 kafka_canary_roundtrip_seconds
 ```
 
+## Project layout
+
+```txt
+src/      application (dotnet-kafka-canary.csproj)
+tests/    unit tests
+```
+
+Build and test everything with `dotnet test dotnet-kafka-canary.slnx`. The
+container image is built from the repository root, e.g. `podman build -t kafka-canary .`
+
+## CloudEvents
+
+Canary messages are produced and consumed as
+[CloudEvents](https://cloudevents.io/) in Kafka **binary content mode**. The
+CloudEvent attributes are carried as Kafka headers and the message value only
+contains the JSON payload:
+
+| Header | Value |
+| --- | --- |
+| `ce_specversion` | `1.0` |
+| `ce_id` | Canary message ID |
+| `ce_source` | `urn:dotnet-kafka-canary:<instance id>` |
+| `ce_type` | `dotnet.kafka.canary.message.v1` |
+| `ce_time` | Produce timestamp |
+| `ce_traceparent` / `ce_tracestate` | CloudEvents distributed tracing extension |
+| `content-type` | `application/json` |
+
+The Kafka message key is the CloudEvent `partitionkey` (the canary instance
+ID). Messages on the topic that are not canary CloudEvents are logged, skipped
+and committed.
+
+## Tracing
+
+The canary uses OpenTelemetry tracing. Each produce creates a `send <topic>`
+producer span and each consumed message creates a `process <topic>` consumer
+span. The trace context is propagated in the W3C `traceparent`/`tracestate`
+(and `baggage`) Kafka headers, as well as the CloudEvents `ce_traceparent`
+extension, which is used as a fallback when extracting the context. Incoming
+HTTP requests (excluding `/metrics` and `/health`) and outgoing HTTP calls,
+such as OAuth token requests, are also traced.
+
+Traces are exported over OTLP only when an endpoint is configured with the
+standard OpenTelemetry environment variables, for example:
+
+| Environment variable | Example |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4317` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` (default) or `http/protobuf` |
+| `OTEL_SERVICE_NAME` | `dotnet-kafka-canary` (default) |
+
 ## Grafana dashboard
 
 Import [`dashboards/kafka-canary.json`](dashboards/kafka-canary.json) into
