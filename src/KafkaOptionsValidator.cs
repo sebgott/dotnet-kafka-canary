@@ -11,7 +11,6 @@ public sealed class KafkaOptionsValidator : IValidateOptions<KafkaOptions>
 
         Require(options.Topic, nameof(options.Topic), failures);
         Require(options.BootstrapServers, nameof(options.BootstrapServers), failures);
-        Require(options.SslCaLocation, nameof(options.SslCaLocation), failures);
         Require(options.GroupId, nameof(options.GroupId), failures);
         RequirePositive(options.ProducerMessageTimeoutMs, nameof(options.ProducerMessageTimeoutMs), failures);
         RequirePositive(options.RetryBackoffMs, nameof(options.RetryBackoffMs), failures);

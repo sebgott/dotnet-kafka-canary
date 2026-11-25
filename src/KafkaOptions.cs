@@ -8,7 +8,6 @@ public sealed class KafkaOptions
 
     public string Topic { get; set; } = "onprem.test.canary-data.add.v1";
     public string BootstrapServers { get; set; } = "localhost:9092";
-    public string SslCaLocation { get; set; } = "certs/ca.crt";
     public string GroupId { get; set; } = "kafka-canary-group";
     public SaslMechanism SaslMechanism { get; set; } = SaslMechanism.OAuthBearer;
     public string? SaslUsername { get; set; }

@@ -34,8 +34,7 @@ public sealed class KafkaClientConfigurationFactory
             RetryBackoffMs = _options.RetryBackoffMs,
             RetryBackoffMaxMs = _options.RetryBackoffMaxMs,
             SecurityProtocol = SecurityProtocol.SaslSsl,
-            SaslMechanism = _options.SaslMechanism,
-            SslCaLocation = _options.SslCaLocation
+            SaslMechanism = _options.SaslMechanism
         };
 
         Action<IClient, string>? oAuthBearerTokenRefreshHandler;

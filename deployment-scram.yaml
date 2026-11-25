@@ -19,15 +19,6 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-      volumes:
-        - name: certs
-          projected:
-            sources:
-              - secret:
-                  name: kafka-cluster-ca-cert
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
       containers:
         - name: kafka-canary
           image: docker.io/sebgot/kafka-canary:0.0.6
@@ -54,8 +45,6 @@ spec:
               value: "kafka:9092"
             - name: KAFKA__TOPIC
               value: "onprem.dev.canary-data.add.v1"
-            - name: KAFKA__SSLCALOCATION
-              value: "/kafka-ca/ca.crt"
             - name: DOTNET_RUNNING_IN_CONTAINER
               value: "true"
             - name: ASPNETCORE_URLS
@@ -85,9 +74,6 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
-          volumeMounts:
-            - name: certs
-              mountPath: /kafka-ca
 ---
 apiVersion: v1
 kind: Service

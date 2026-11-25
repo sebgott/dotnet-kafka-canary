@@ -1,10 +1,3 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kafka-canary-workload-identity
-  annotations:
-    azure.workload.identity/client-id: "<entra-identity-client-id>"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,18 +17,9 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/port: "8080"
     spec:
-      serviceAccountName: kafka-canary-workload-identity
+      serviceAccountName: itx-sa
       securityContext:
         runAsNonRoot: true
-      volumes:
-        - name: certs
-          projected:
-            sources:
-              - secret:
-                  name: kafka-cluster-ca-cert
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
       containers:
         - name: kafka-canary
           image: registry.example.com/kafka-canary:workload-identity
@@ -48,7 +32,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: KAFKA__GROUPID
-              value: "kafka-canary-workload-identity-group-$(POD_NAME)"
+              value: "kafka-canary-group-$(POD_NAME)"
             - name: KAFKA__SASLMECHANISM
               value: "OAuthBearer"
             - name: KAFKA__USEWORKLOADIDENTITY
@@ -59,8 +43,6 @@ spec:
               value: "kafka:443"
             - name: KAFKA__TOPIC
               value: "onprem.test.canary-data.add.v1"
-            - name: KAFKA__SSLCALOCATION
-              value: "/kafka-ca/ca.crt"
             - name: DOTNET_RUNNING_IN_CONTAINER
               value: "true"
             - name: ASPNETCORE_URLS
@@ -90,9 +72,6 @@ spec:
             requests:
               cpu: "100m"
               memory: "128Mi"
-          volumeMounts:
-            - name: certs
-              mountPath: /kafka-ca
 ---
 apiVersion: v1
 kind: Service

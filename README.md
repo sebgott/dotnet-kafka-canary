@@ -85,7 +85,6 @@ Shared settings:
 | `KAFKA__BOOTSTRAPSERVERS` | `localhost:9092` |
 | `KAFKA__TOPIC` | `onprem.test.canary-data.add.v1` |
 | `KAFKA__GROUPID` | `kafka-canary-group` |
-| `KAFKA__SSLCALOCATION` | `certs/ca.crt` |
 | `KAFKA__PRODUCERMESSAGETIMEOUTMS` | `900000` (15 minutes) |
 | `KAFKA__RETRYBACKOFFMS` | `1000` |
 | `KAFKA__RETRYBACKOFFMAXMS` | `10000` |
@@ -128,8 +127,7 @@ or another Azure credential.
 2. In the example manifest, replace the service account's Entra client ID,
    set `KAFKA__OAUTHSCOPE` to the Kafka API scope, and point the image at a
    build that supports Workload Identity. Adjust the broker and topic as
-   needed and make sure the `kafka-cluster-ca-cert` Secret in the target
-   namespace contains `ca.crt`.
+   needed.
 3. Apply the manifest to the same namespace used in the federated subject:
 
    ```sh
