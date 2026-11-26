@@ -7,12 +7,20 @@ be quickly alerted to issues with Kafka.
 
 Metrics produced:
 
-```txt
-kafka_canary_messages_produced_total
-kafka_canary_messages_consumed_total
-kafka_canary_failures_total
-kafka_canary_roundtrip_seconds
-```
+| Metric | Type | Description |
+| --- | --- | --- |
+| `kafka_canary_messages_produced_total` | counter | Messages acknowledged by the broker |
+| `kafka_canary_messages_consumed_total` | counter | Own messages consumed (completed roundtrips) |
+| `kafka_canary_messages_lost_total` | counter | Acknowledged messages not consumed within `KAFKA__CONSUMETIMEOUTMS` |
+| `kafka_canary_failures_total{stage}` | counter | Failures by `stage`: `produce`, `consume` or `process` |
+| `kafka_canary_inflight_messages` | gauge | Messages produced but not yet consumed |
+| `kafka_canary_last_roundtrip_timestamp_seconds` | gauge | Unix time of the last successful roundtrip |
+| `kafka_canary_produce_seconds` | histogram | Produce to broker acknowledgement latency |
+| `kafka_canary_roundtrip_seconds` | histogram | Produce to consume latency |
+
+Latency histograms are in seconds with exponential buckets from 1 ms to ~131 s.
+Messages that expire before the first successful roundtrip (while a new
+consumer group is still being positioned) are logged but not counted as lost.
 
 ## Project layout
 
@@ -68,8 +76,12 @@ standard OpenTelemetry environment variables, for example:
 
 Import [`dashboards/kafka-canary.json`](dashboards/kafka-canary.json) into
 Grafana and select the Prometheus datasource. The dashboard includes
-namespace and pod filters, producer and consumer throughput, delivery failures,
-the producer/consumer delivery gap, and p50/p95/p99 round-trip latency.
+namespace, pod and cluster filters, producer and consumer throughput, failures
+by stage, in-flight and lost messages, time since the last successful
+roundtrip, p50/p95/p99 round-trip latency and p95 produce acknowledgement
+latency. Time series queries use a 1 minute minimum step so that
+`$__rate_interval` always spans several scrapes, even when pods are scraped
+every 30-60 seconds.
 
 ## Kafka authentication
 
@@ -88,6 +100,7 @@ Shared settings:
 | `KAFKA__PRODUCERMESSAGETIMEOUTMS` | `900000` (15 minutes) |
 | `KAFKA__RETRYBACKOFFMS` | `1000` |
 | `KAFKA__RETRYBACKOFFMAXMS` | `10000` |
+| `KAFKA__CONSUMETIMEOUTMS` | `120000` (2 minutes) |
 
 The producer is idempotent and retries retriable delivery failures until the
 configured message timeout expires. The default 15-minute delivery window

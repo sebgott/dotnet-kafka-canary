@@ -132,12 +132,14 @@ public sealed class KafkaOptionsTests
         options.ProducerMessageTimeoutMs = 0;
         options.RetryBackoffMs = 2_000;
         options.RetryBackoffMaxMs = 1_000;
+        options.ConsumeTimeoutMs = 0;
 
         var result = _validator.Validate(null, options);
 
         Assert.True(result.Failed);
         Assert.Contains(result.Failures, failure => failure.Contains(nameof(KafkaOptions.ProducerMessageTimeoutMs)));
         Assert.Contains(result.Failures, failure => failure.Contains(nameof(KafkaOptions.RetryBackoffMaxMs)));
+        Assert.Contains(result.Failures, failure => failure.Contains(nameof(KafkaOptions.ConsumeTimeoutMs)));
     }
 
     [Fact]

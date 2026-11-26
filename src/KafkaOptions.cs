@@ -20,4 +20,5 @@ public sealed class KafkaOptions
     public int ProducerMessageTimeoutMs { get; set; } = 900_000;
     public int RetryBackoffMs { get; set; } = 1_000;
     public int RetryBackoffMaxMs { get; set; } = 10_000;
+    public int ConsumeTimeoutMs { get; set; } = 120_000;
 }

@@ -20,7 +20,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: kafka-canary
-          image: docker.io/sebgot/kafka-canary:0.0.7
+          image: docker.io/sebgot/kafka-canary:0.2.1
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
@@ -30,7 +30,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: KAFKA__GROUPID
-              value: "kafka-canary-group-$(POD_NAME)"
+              value: "itx-test-mi-oauth-$(POD_NAME)"
             - name: KAFKA__SASLMECHANISM
               value: "OAuthBearer"
             - name: KAFKA__CLIENTID
@@ -46,11 +46,11 @@ spec:
             - name: KAFKA__TOKENENDPOINT
               value: "https://login.microsoftonline.com/a0662e96-1770-4f05-82d5-6a513fa8b7be/oauth2/v2.0/token"
             - name: KAFKA__OAUTHSCOPE
-              value: "api://56a6af18-83dc-4f3f-9c30-f367f42f7aaa/.default"
+              value: "api://beee626e-b40e-442b-8629-e3563ed7982b/.default"
             - name: KAFKA__BOOTSTRAPSERVERS
-              value: "kafka:443"
+              value: "kafka.staging.eda.banenor.no:9093"
             - name: KAFKA__TOPIC
-              value: "onprem.test.canary-data.add.v1"
+              value: "cloud.internal.itx.canary.test-data.publish.v1"
             - name: DOTNET_RUNNING_IN_CONTAINER
               value: "true"
             - name: ASPNETCORE_URLS

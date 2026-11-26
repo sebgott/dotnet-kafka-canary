@@ -5,6 +5,7 @@ using dotnet_kafka_canary.Domain.Metrics;
 using dotnet_kafka_canary.Domain.Tracing;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
+using Prometheus;
 
 namespace dotnet_kafka_canary;
 
@@ -14,12 +15,13 @@ public class KafkaCanaryService : BackgroundService
 
     private readonly string _topic;
     private readonly string _groupId;
+    private readonly TimeSpan _consumeTimeout;
     private readonly string _instanceId = Guid.NewGuid().ToString();
 
     private readonly IProducer<string?, byte[]> _producer;
     private readonly IConsumer<string?, byte[]> _consumer;
 
-    private readonly ConcurrentDictionary<Guid, DateTime> _inflight = new();
+    private readonly ConcurrentDictionary<Guid, InflightMessage> _inflight = new();
 
     public static DateTime LastSuccessUtc { get; private set; } = DateTime.MinValue;
 
@@ -31,6 +33,7 @@ public class KafkaCanaryService : BackgroundService
         _logger = logger;
         _topic = options.Value.Topic;
         _groupId = options.Value.GroupId;
+        _consumeTimeout = TimeSpan.FromMilliseconds(options.Value.ConsumeTimeoutMs);
         _producer = clients.Producer;
         _consumer = clients.Consumer;
     }
@@ -47,6 +50,8 @@ public class KafkaCanaryService : BackgroundService
     {
         while (!token.IsCancellationRequested)
         {
+            ExpireUnconsumedMessages();
+
             var message = new CanaryMessage(
                 _instanceId,
                 Guid.NewGuid(),
@@ -54,7 +59,9 @@ public class KafkaCanaryService : BackgroundService
 
             using (var activity = KafkaCanaryTelemetry.StartProduceActivity(_topic, _instanceId, message.MessageId))
             {
-                _inflight[message.MessageId] = message.ProducedAtUtc;
+                var inflight = new InflightMessage(Stopwatch.GetTimestamp());
+                _inflight[message.MessageId] = inflight;
+                UpdateInflightGauge();
 
                 try
                 {
@@ -62,30 +69,33 @@ public class KafkaCanaryService : BackgroundService
                     KafkaCanaryTelemetry.Inject(activity, kafkaMessage.Headers);
 
                     var result = await _producer.ProduceAsync(_topic, kafkaMessage, token);
+                    inflight.AckedTimestamp = Stopwatch.GetTimestamp();
 
                     activity?.SetTag("messaging.destination.partition.id", result.Partition.Value.ToString());
                     activity?.SetTag("messaging.kafka.offset", result.Offset.Value);
 
                     PrometheusMetrics.MessagesProduced.Inc();
+                    PrometheusMetrics.ProduceLatency.Observe(
+                        Stopwatch.GetElapsedTime(inflight.ProducedTimestamp, inflight.AckedTimestamp).TotalSeconds);
 
                     _logger.LogInformation("Produced {MessageId}", message.MessageId);
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
-                    _inflight.TryRemove(message.MessageId, out _);
+                    RemoveInflight(message.MessageId);
                     break;
                 }
                 catch (ProduceException<string?, byte[]> ex)
                 {
-                    _inflight.TryRemove(message.MessageId, out _);
-                    PrometheusMetrics.Failures.Inc();
+                    RemoveInflight(message.MessageId);
+                    PrometheusMetrics.Failures.WithLabels(FailureStage.Produce).Inc();
                     RecordError(activity, ex);
                     _logger.LogError("Error producing message 'ProduceException': {Message}", ex.Message);
                 }
                 catch (Exception ex)
                 {
-                    _inflight.TryRemove(message.MessageId, out _);
-                    PrometheusMetrics.Failures.Inc();
+                    RemoveInflight(message.MessageId);
+                    PrometheusMetrics.Failures.WithLabels(FailureStage.Produce).Inc();
                     RecordError(activity, ex);
                     _logger.LogError(ex, "Produce failed");
                 }
@@ -108,7 +118,7 @@ public class KafkaCanaryService : BackgroundService
                 }
                 catch (ConsumeException ex)
                 {
-                    PrometheusMetrics.Failures.Inc();
+                    PrometheusMetrics.Failures.WithLabels(FailureStage.Consume).Inc();
                     _logger.LogError(ex, "Consume error");
                     continue;
                 }
@@ -118,7 +128,7 @@ public class KafkaCanaryService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    PrometheusMetrics.Failures.Inc();
+                    PrometheusMetrics.Failures.WithLabels(FailureStage.Consume).Inc();
                     _logger.LogError(ex, "Unexpected consume error");
                     continue;
                 }
@@ -133,9 +143,9 @@ public class KafkaCanaryService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    PrometheusMetrics.Failures.Inc();
+                    PrometheusMetrics.Failures.WithLabels(FailureStage.Process).Inc();
                     RecordError(activity, ex);
-                    _logger.LogError(ex, "Unexpected consume error");
+                    _logger.LogError(ex, "Message processing failed");
                 }
             }
         }, token);
@@ -157,12 +167,14 @@ public class KafkaCanaryService : BackgroundService
         activity?.SetTag("cloudevents.event_source", cloudEvent.Source?.ToString());
         activity?.SetTag("cloudevents.event_type", cloudEvent.Type);
 
-        if (_inflight.TryRemove(message.MessageId, out var producedAt))
+        if (_inflight.TryRemove(message.MessageId, out var inflight))
         {
-            var latency = DateTime.UtcNow - producedAt;
+            var latency = Stopwatch.GetElapsedTime(inflight.ProducedTimestamp);
+            UpdateInflightGauge();
 
             PrometheusMetrics.MessagesConsumed.Inc();
-            PrometheusMetrics.RoundtripLatency.Observe(latency.TotalMilliseconds);
+            PrometheusMetrics.RoundtripLatency.Observe(latency.TotalSeconds);
+            PrometheusMetrics.LastRoundtripTimestamp.SetToCurrentTimeUtc();
 
             LastSuccessUtc = DateTime.UtcNow;
 
@@ -175,9 +187,62 @@ public class KafkaCanaryService : BackgroundService
         }
     }
 
+    private void ExpireUnconsumedMessages()
+    {
+        foreach (var (messageId, inflight) in _inflight)
+        {
+            var ackedTimestamp = inflight.AckedTimestamp;
+            if (ackedTimestamp == 0 || Stopwatch.GetElapsedTime(ackedTimestamp) < _consumeTimeout)
+                continue;
+
+            if (!_inflight.TryRemove(messageId, out _))
+                continue;
+
+            // With a fresh consumer group and AutoOffsetReset.Latest, messages produced before the
+            // consumer is positioned are skipped; only count losses once a roundtrip has succeeded.
+            if (LastSuccessUtc == DateTime.MinValue)
+            {
+                _logger.LogWarning(
+                    "Message {MessageId} was not consumed within {Timeout} before the first roundtrip; not counted as lost",
+                    messageId,
+                    _consumeTimeout);
+                continue;
+            }
+
+            PrometheusMetrics.MessagesLost.Inc();
+            _logger.LogError(
+                "Message {MessageId} was not consumed within {Timeout} after broker acknowledgement",
+                messageId,
+                _consumeTimeout);
+        }
+
+        UpdateInflightGauge();
+    }
+
+    private void RemoveInflight(Guid messageId)
+    {
+        _inflight.TryRemove(messageId, out _);
+        UpdateInflightGauge();
+    }
+
+    private void UpdateInflightGauge() => PrometheusMetrics.InflightMessages.Set(_inflight.Count);
+
     private static void RecordError(Activity? activity, Exception ex)
     {
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         activity?.AddException(ex);
+    }
+
+    private sealed class InflightMessage(long producedTimestamp)
+    {
+        private long _ackedTimestamp;
+
+        public long ProducedTimestamp { get; } = producedTimestamp;
+
+        public long AckedTimestamp
+        {
+            get => Volatile.Read(ref _ackedTimestamp);
+            set => Volatile.Write(ref _ackedTimestamp, value);
+        }
     }
 }

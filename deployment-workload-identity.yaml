@@ -22,7 +22,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: kafka-canary
-          image: registry.example.com/kafka-canary:workload-identity
+          image: docker.io/sebgot/kafka-canary:0.2.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -32,17 +32,17 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: KAFKA__GROUPID
-              value: "kafka-canary-group-$(POD_NAME)"
+              value: "itx-test-mi-oauth-$(POD_NAME)"
             - name: KAFKA__SASLMECHANISM
               value: "OAuthBearer"
             - name: KAFKA__USEWORKLOADIDENTITY
               value: "true"
             - name: KAFKA__OAUTHSCOPE
-              value: "api://<kafka-api-app-id>/.default"
+              value: "api://beee626e-b40e-442b-8629-e3563ed7982b/.default"
             - name: KAFKA__BOOTSTRAPSERVERS
-              value: "kafka:443"
+              value: "kafka.staging.eda.banenor.no:9093"
             - name: KAFKA__TOPIC
-              value: "onprem.test.canary-data.add.v1"
+              value: "cloud.internal.itx.canary.test-data.publish.v1"
             - name: DOTNET_RUNNING_IN_CONTAINER
               value: "true"
             - name: ASPNETCORE_URLS
@@ -50,8 +50,8 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
             # Optional: export traces to an OpenTelemetry collector.
-            # - name: OTEL_EXPORTER_OTLP_ENDPOINT
-            #   value: "http://otel-collector:4317"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://opentelemetry-collector-collector.opentelemetry.svc.cluster.local:4317"
           readinessProbe:
             httpGet:
               port: 8080
