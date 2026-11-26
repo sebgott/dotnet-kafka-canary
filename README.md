@@ -101,6 +101,12 @@ Shared settings:
 | `KAFKA__RETRYBACKOFFMS` | `1000` |
 | `KAFKA__RETRYBACKOFFMAXMS` | `10000` |
 | `KAFKA__CONSUMETIMEOUTMS` | `120000` (2 minutes) |
+| `KAFKA__PRODUCEINTERVALMS` | `1000` (1 message per second) |
+
+Each instance produces one canary message every `KAFKA__PRODUCEINTERVALMS`.
+The schedule is fixed-rate, so time spent waiting for the broker
+acknowledgement counts towards the interval; if an acknowledgement takes
+longer than the interval, the next message is sent as soon as it completes.
 
 The producer is idempotent and retries retriable delivery failures until the
 configured message timeout expires. The default 15-minute delivery window

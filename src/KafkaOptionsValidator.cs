@@ -16,6 +16,7 @@ public sealed class KafkaOptionsValidator : IValidateOptions<KafkaOptions>
         RequirePositive(options.RetryBackoffMs, nameof(options.RetryBackoffMs), failures);
         RequirePositive(options.RetryBackoffMaxMs, nameof(options.RetryBackoffMaxMs), failures);
         RequirePositive(options.ConsumeTimeoutMs, nameof(options.ConsumeTimeoutMs), failures);
+        RequirePositive(options.ProduceIntervalMs, nameof(options.ProduceIntervalMs), failures);
 
         if (options.RetryBackoffMaxMs < options.RetryBackoffMs)
         {

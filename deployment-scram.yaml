@@ -45,6 +45,8 @@ spec:
               value: "kafka:9092"
             - name: KAFKA__TOPIC
               value: "onprem.dev.canary-data.add.v1"
+            - name: KAFKA__PRODUCEINTERVALMS
+              value: "1000"
             - name: DOTNET_RUNNING_IN_CONTAINER
               value: "true"
             - name: ASPNETCORE_URLS

@@ -16,6 +16,7 @@ public class KafkaCanaryService : BackgroundService
     private readonly string _topic;
     private readonly string _groupId;
     private readonly TimeSpan _consumeTimeout;
+    private readonly TimeSpan _produceInterval;
     private readonly string _instanceId = Guid.NewGuid().ToString();
 
     private readonly IProducer<string?, byte[]> _producer;
@@ -34,6 +35,7 @@ public class KafkaCanaryService : BackgroundService
         _topic = options.Value.Topic;
         _groupId = options.Value.GroupId;
         _consumeTimeout = TimeSpan.FromMilliseconds(options.Value.ConsumeTimeoutMs);
+        _produceInterval = TimeSpan.FromMilliseconds(options.Value.ProduceIntervalMs);
         _producer = clients.Producer;
         _consumer = clients.Consumer;
     }
@@ -48,6 +50,10 @@ public class KafkaCanaryService : BackgroundService
 
     private async Task RunProducerLoop(CancellationToken token)
     {
+        // Fixed-rate schedule: the interval includes the time spent waiting for the broker ack.
+        // Ticks missed while a produce is blocked are coalesced rather than sent in a burst.
+        using var timer = new PeriodicTimer(_produceInterval);
+
         while (!token.IsCancellationRequested)
         {
             ExpireUnconsumedMessages();
@@ -101,7 +107,7 @@ public class KafkaCanaryService : BackgroundService
                 }
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(10), token);
+            await timer.WaitForNextTickAsync(token);
         }
     }
 
