@@ -215,7 +215,7 @@
       ],
       "title": "Failures (Selected Range)",
       "type": "stat",
-      "description": "Approximate: Prometheus increase() extrapolates between scrapes and only counts pods from their first scrape in the range."
+      "description": "Approximate: Prometheus increase() extrapolates between scrapes and only counts pods from their first scrape in the range. See Failure Details for individual failure logs."
     },
     {
       "datasource": {
@@ -832,7 +832,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "time() - max by (pod) (kafka_canary_last_roundtrip_timestamp_seconds{namespace=~\"$namespace\", pod=~\"$pod\", cluster=~\"$cluster\"} > 0)",
+          "expr": "max by (pod) ((timestamp(kafka_canary_last_roundtrip_timestamp_seconds{namespace=~\"$namespace\", pod=~\"$pod\", cluster=~\"$cluster\"}) - kafka_canary_last_roundtrip_timestamp_seconds{namespace=~\"$namespace\", pod=~\"$pod\", cluster=~\"$cluster\"}) and kafka_canary_last_roundtrip_timestamp_seconds{namespace=~\"$namespace\", pod=~\"$pod\", cluster=~\"$cluster\"} > 0)",
           "legendFormat": "{{pod}}",
           "refId": "A",
           "range": true,
@@ -841,7 +841,44 @@
       ],
       "title": "Time Since Last Successful Round-Trip",
       "type": "timeseries",
-      "description": "Per pod. Grows while no own message completes a produce/consume roundtrip."
+      "description": "Per pod, age of the last successful produce/consume roundtrip at the time Prometheus scraped the pod. Measured at scrape time, so the scrape interval does not inflate the value. Pods without a roundtrip yet are hidden; pods that stop being scraped disappear after ~5 minutes."
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 10,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "editorMode": "code",
+          "expr": "{cluster=~\"${cluster:regex}\", namespace=~\"${namespace:regex}\", pod=~\"${pod:regex}\"} |= \"Canary failure:\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Failure Details (Selected Range)",
+      "type": "logs",
+      "description": "Individual produce, consume and process failure logs. Requires a Loki datasource collecting canary logs with cluster, namespace and pod labels. Message ID and Kafka location are shown when available; consume errors may not be associated with a message. The log count may differ from the approximate Prometheus count."
     }
   ],
   "preload": false,
@@ -864,6 +901,16 @@
         "name": "datasource",
         "options": [],
         "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "includeAll": false,
+        "label": "Logs data source",
+        "name": "loki",
+        "options": [],
+        "query": "loki",
         "refresh": 1,
         "regex": "",
         "type": "datasource"

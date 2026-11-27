@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using dotnet_kafka_canary.Domain.CloudEvents;
 using dotnet_kafka_canary.Domain.Metrics;
 using dotnet_kafka_canary.Domain.Tracing;
@@ -96,14 +97,14 @@ public class KafkaCanaryService : BackgroundService
                     RemoveInflight(message.MessageId);
                     PrometheusMetrics.Failures.WithLabels(FailureStage.Produce).Inc();
                     RecordError(activity, ex);
-                    _logger.LogError("Error producing message 'ProduceException': {Message}", ex.Message);
+                    LogFailure(FailureStage.Produce, ex, message.MessageId.ToString(), _topic);
                 }
                 catch (Exception ex)
                 {
                     RemoveInflight(message.MessageId);
                     PrometheusMetrics.Failures.WithLabels(FailureStage.Produce).Inc();
                     RecordError(activity, ex);
-                    _logger.LogError(ex, "Produce failed");
+                    LogFailure(FailureStage.Produce, ex, message.MessageId.ToString(), _topic);
                 }
             }
 
@@ -125,7 +126,9 @@ public class KafkaCanaryService : BackgroundService
                 catch (ConsumeException ex)
                 {
                     PrometheusMetrics.Failures.WithLabels(FailureStage.Consume).Inc();
-                    _logger.LogError(ex, "Consume error");
+                    var record = ex.ConsumerRecord;
+                    LogFailure(FailureStage.Consume, ex, GetMessageId(record?.Message?.Headers),
+                        record?.Topic ?? _topic, record?.Partition.Value, record?.Offset.Value);
                     continue;
                 }
                 catch (OperationCanceledException)
@@ -135,7 +138,7 @@ public class KafkaCanaryService : BackgroundService
                 catch (Exception ex)
                 {
                     PrometheusMetrics.Failures.WithLabels(FailureStage.Consume).Inc();
-                    _logger.LogError(ex, "Unexpected consume error");
+                    LogFailure(FailureStage.Consume, ex, topic: _topic);
                     continue;
                 }
 
@@ -151,7 +154,8 @@ public class KafkaCanaryService : BackgroundService
                 {
                     PrometheusMetrics.Failures.WithLabels(FailureStage.Process).Inc();
                     RecordError(activity, ex);
-                    _logger.LogError(ex, "Message processing failed");
+                    LogFailure(FailureStage.Process, ex, GetMessageId(result.Message?.Headers),
+                        result.Topic, result.Partition.Value, result.Offset.Value);
                 }
             }
         }, token);
@@ -238,6 +242,26 @@ public class KafkaCanaryService : BackgroundService
         activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         activity?.AddException(ex);
     }
+
+    private void LogFailure(
+        string stage, Exception exception, string? messageId = null, string? topic = null,
+        int? partition = null, long? offset = null)
+    {
+        _logger.LogError(exception,
+            "Canary failure: stage={Stage} message_id={MessageId} topic={Topic} partition={Partition} offset={Offset} error_type={ErrorType} error_code={ErrorCode} reason={Reason}",
+            stage, SingleLine(messageId), SingleLine(topic), partition is >= 0 ? partition.ToString() : "unknown",
+            offset is >= 0 ? offset.ToString() : "unknown", exception.GetType().Name,
+            exception is KafkaException kafkaException ? kafkaException.Error.Code.ToString() : "unknown",
+            SingleLine(exception.Message));
+    }
+
+    private static string? GetMessageId(Headers? headers) =>
+        headers is not null && headers.TryGetLastBytes("ce_id", out var value) && value is not null
+            ? Encoding.UTF8.GetString(value)
+            : null;
+
+    private static string SingleLine(string? value) =>
+        string.IsNullOrEmpty(value) ? "unknown" : value.Replace('\r', ' ').Replace('\n', ' ');
 
     private sealed class InflightMessage(long producedTimestamp)
     {

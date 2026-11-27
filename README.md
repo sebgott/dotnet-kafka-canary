@@ -83,6 +83,25 @@ latency. Time series queries use a 1 minute minimum step so that
 `$__rate_interval` always spans several scrapes, even when pods are scraped
 every 30-60 seconds.
 
+The **Failure Details (Selected Range)** logs panel shows the stage, message ID,
+topic, partition and offset when available, plus the exception type, Kafka
+error code and reason for each failure counted by `kafka_canary_failures_total`.
+Some consume errors are not associated with a message; unavailable fields are
+shown as `unknown`. A process failure can also occur while committing a message.
+Message payloads are not explicitly logged, but exception details may contain
+sensitive information. Lost messages are counted separately and are not
+included in this panel.
+
+Select a Loki datasource that collects the canary's application logs. The
+panel expects Loki stream labels named `cluster`, `namespace` and `pod` with
+the same values as the Prometheus labels; adjust its LogQL selector if your
+logging setup uses different labels. Details are available only for new logs
+after deploying this version and within Loki's retention period. The log count
+can differ from the approximate Prometheus `increase()` count, especially
+around scrape boundaries, pod restarts or missing logs. Grafana or Loki may
+also limit the number of log entries returned. If Loki is unavailable, the
+same `Canary failure:` entries can be found in the application logs.
+
 ## Kafka authentication
 
 The canary connects with `SASL_SSL` and supports `OAuthBearer` and
